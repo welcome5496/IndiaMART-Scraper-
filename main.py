@@ -2,60 +2,52 @@ import logging
 import requests
 import pandas as pd
 from bs4 import BeautifulSoup
-from fake_useragent import UserAgent
 from telegram import Update, InputFile
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
-import os
-import random
 
-# Manually add your Bot Token here
-BOT_TOKEN = "7995739639:AAHwFkfjrh6-RZTCBV793imNmMDe6hn-GGo"  # Replace this with your actual bot token
+# Set up your Telegram Bot Token
+BOT_TOKEN = "7995739639:AAHwFkfjrh6-RZTCBV793imNmMDe6hn-GGo"  # Replace with your actual Telegram Bot Token
 
 # Logging setup
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
-# Sample list of proxies (Add as many as you like)
-PROXIES = [
-    "http://username:password@proxy1.com:8080",
-    "http://username:password@proxy2.com:8080",
-    "http://username:password@proxy3.com:8080",
-    "http://username:password@proxy4.com:8080",
-    "http://username:password@proxy5.com:8080",
-    "http://username:password@proxy6.com:8080",
-    "http://username:password@proxy7.com:8080",
-    "http://username:password@proxy8.com:8080",
-    "http://username:password@proxy9.com:8080",
-    "http://username:password@proxy10.com:8080",
-    "http://username:password@proxy11.com:8080",
-    "http://username:password@proxy12.com:8080",
-    "http://username:password@proxy13.com:8080",
-    "http://username:password@proxy14.com:8080",
-    "http://username:password@proxy15.com:8080"
-]
+# ScraperAPI key (replace with your actual key)
+API_KEY = "your-scraperapi-key-here"  # Replace with your ScraperAPI key
+BASE_URL = "http://api.scraperapi.com"
 
-# User-agent randomizer
-ua = UserAgent()
-
+# Function to start the bot
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("👋 Send me a product category (e.g. 'led bulb') and I'll fetch IndiaMART products for you!")
 
+# Function to handle incoming messages and scrape products
 async def fetch_products(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.message.text.strip()
     await update.message.reply_text(f"🔍 Scraping IndiaMART for: {query}...")
 
-    # Randomly select a proxy from the list
-    proxy = random.choice(PROXIES)
-    headers = {
-        'User-Agent': ua.random  # Random user-agent
+    # ScraperAPI request parameters
+    params = {
+        'api_key': c92b09864c1f30d7ae51295c6812cce2,  # Your ScraperAPI key
+        'url': f'https://dir.indiamart.com/search.mp?ss={query.replace(" ", "+")}',  # IndiaMART search URL
     }
 
-    url = f"https://dir.indiamart.com/search.mp?ss={query.replace(' ', '+')}"
-    
-    # Use the proxy in the request
-    response = requests.get(url, headers=headers, proxies={"http": proxy, "https": proxy})
+    try:
+        # Make the request through ScraperAPI
+        response = requests.get(BASE_URL, params=params)
+        response.raise_for_status()  # Check for HTTP errors
+    except requests.exceptions.RequestException as e:
+        await update.message.reply_text(f"⚠️ Error occurred while fetching data: {e}")
+        return
+
+    # Parse the HTML content using BeautifulSoup
     soup = BeautifulSoup(response.text, 'html.parser')
 
+    # Find product cards using the appropriate CSS selectors
     product_cards = soup.select(".prd-listing, .product-info, .r-cl")
+    
+    if not product_cards:
+        await update.message.reply_text("⚠️ No product cards found. Please check the page structure or try again later.")
+        return
+    
     product_data = []
 
     for card in product_cards:
@@ -71,15 +63,18 @@ async def fetch_products(update: Update, context: ContextTypes.DEFAULT_TYPE):
             product_data.append([name, price, link])
 
     if not product_data:
-        await update.message.reply_text("⚠️ No products found. IndiaMART may have changed its structure or blocked scraping.")
+        await update.message.reply_text("⚠️ No products found for your search.")
         return
 
+    # Create a DataFrame and save it as a CSV
     df = pd.DataFrame(product_data, columns=["Product Name", "Price", "Link"])
     file_path = f"{query.replace(' ', '_')}_indiamart.csv"
     df.to_csv(file_path, index=False)
 
+    # Send the CSV file to the user
     await update.message.reply_document(InputFile(file_path))
 
+# Main function to set up the bot and run the handlers
 def main():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
@@ -87,6 +82,7 @@ def main():
     print("✅ Bot is running...")
     app.run_polling()
 
+# Run the bot
 if __name__ == "__main__":
     main()
     
