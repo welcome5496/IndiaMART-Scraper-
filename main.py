@@ -8,7 +8,8 @@ from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, Con
 import os
 import random
 
-BOT_TOKEN = os.getenv("BOT_TOKEN")
+# Manually add your Bot Token here
+BOT_TOKEN = "7995739639:AAHwFkfjrh6-RZTCBV793imNmMDe6hn-GGo"  # Replace this with your actual bot token
 
 # Logging setup
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
